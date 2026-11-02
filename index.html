@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <style>body{margin:0}[hidden]{display:none!important}img{max-width:100%}html{-webkit-text-size-adjust:100%}</style>
 <title>Renzel &amp; Erika</title>
+<meta name="rsvp-version" content="v3-dialog">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400;0,6..96,600;1,6..96,400;1,6..96,500&family=Lora:ital,wght@0,400;0,500;1,400&family=Karla:wght@400;600&display=swap">
 <style>
@@ -452,7 +453,7 @@ html.locked #petals{z-index:61}
     </fieldset>
     <div id="guest-wrap"><label for="f-guest">Name of the guest attending (1 seat)</label><input type="text" id="f-guest" name="guest"></div>
     <div><label for="f-msg">Message for the couple</label><textarea id="f-msg" name="message" placeholder="Share your prayers, blessings, or a message for us as we begin this new chapter together."></textarea></div>
-    <div><button class="btn" type="submit" id="f-submit" style="margin-top:0">Send RSVP</button></div>
+    <div><button class="btn" type="button" id="f-submit" style="margin-top:0">Send RSVP</button></div>
     <div class="status" id="f-status" role="status"></div>
     <div class="fallback" id="fallback" hidden>
       <p style="margin:0;font-size:15px">Online RSVP isn't available in this view. Copy your reply below and send it to John Renzel on Messenger.</p>
@@ -588,8 +589,8 @@ html.locked #petals{z-index:61}
     function select(){ var r=document.createRange(); r.selectNodeContents(pre); var s=getSelection(); s.removeAllRanges(); s.addRange(r); setStatus("Text selected. Copy it and send it to John Renzel on Messenger.","ok"); }
   });
 
-  form.addEventListener("submit", function(e){
-    e.preventDefault();
+  function doSubmit(e){
+    if (e && e.preventDefault) e.preventDefault();
     var v = values();
     if (!v.name){ setStatus("Please enter your full name.","err"); nameEl.focus(); return; }
     if (!v.mobile){ setStatus("Please enter your mobile number.","err"); document.getElementById("f-mobile").focus(); return; }
@@ -611,7 +612,10 @@ html.locked #petals{z-index:61}
       showDialog(false, "RSVP not sent", "Something went wrong while sending your RSVP. Please check your internet connection and try again. If it still fails, you can copy your RSVP below and send it to John Renzel on Messenger.");
       showFallback(v);
     }).finally(function(){ btn.disabled = false; });
-  });
+    return false;
+  }
+  form.addEventListener("submit", doSubmit);
+  document.getElementById("f-submit").addEventListener("click", doSubmit);
 
   // Connect storage
   function esc(s){ var d=document.createElement("div"); d.textContent = s==null?"":String(s); return d.innerHTML; }
@@ -775,9 +779,12 @@ html.locked #petals{z-index:61}
 (function(){
   var intro=document.getElementById("intro"); if(!intro) return;
   var root=document.documentElement, reduce=window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches, done=false;
+  var seen=false; try{ seen = sessionStorage.getItem("re-env-opened")==="1"; }catch(e){}
+  if (seen){ intro.hidden = true; return; }
   root.classList.add("locked");
   function open(){
     if(done) return; done=true;
+    try{ sessionStorage.setItem("re-env-opened","1"); }catch(e){}
     var finish=function(){ intro.classList.add("gone"); root.classList.remove("locked"); window.scrollTo(0,0);
       setTimeout(function(){ intro.hidden=true; },750); };
     if(reduce){ finish(); return; }
