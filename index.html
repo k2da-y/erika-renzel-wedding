@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<base target="_top">
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <style>body{margin:0}[hidden]{display:none!important}img{max-width:100%}html{-webkit-text-size-adjust:100%}</style>
 <title>Renzel &amp; Erika</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -245,6 +245,19 @@ html.locked #petals{z-index:61}
 @keyframes pulse{0%{transform:scale(.4);opacity:.45}100%{transform:scale(2.2);opacity:0}}
 @media (prefers-reduced-motion:reduce){.pin .pulse{animation:none}}
 :root{--map-ground:#efe5d4;--map-block:#e6d9c4;--map-park:#d5dcc6;--map-water:#c9d6d4;--map-road:#fcf8ef}
+
+/* RSVP result dialog */
+.dlg{position:fixed;inset:0;z-index:70;display:flex;align-items:center;justify-content:center;background:rgba(40,18,22,.55);padding:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) max(16px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));animation:dlgfade .25s ease}
+.dlg[hidden]{display:none!important}
+.dlg-box{background:var(--paper);border:1px solid var(--line);border-radius:16px;max-width:380px;width:100%;padding:30px 24px 24px;text-align:center;box-shadow:0 20px 50px rgba(40,18,22,.3);animation:dlgpop .3s cubic-bezier(.2,.8,.2,1)}
+.dlg-icon{width:58px;height:58px;margin:0 auto 14px;border-radius:50%;display:flex;align-items:center;justify-content:center;font:600 28px/1 var(--label);color:#fff;background:var(--sage-ink)}
+.dlg.fail .dlg-icon{background:var(--burgundy)}
+.dlg-box h3{font:400 28px/1.2 var(--display);color:var(--burgundy);margin:0 0 8px}
+.dlg-box p{color:var(--muted);margin:0 0 20px;font-size:16px}
+.dlg-box .btn{margin-top:0;border-radius:999px;min-width:140px}
+@keyframes dlgfade{from{opacity:0}to{opacity:1}}
+@keyframes dlgpop{from{transform:translateY(12px) scale(.96);opacity:0}to{transform:none;opacity:1}}
+@media (prefers-reduced-motion:reduce){.dlg,.dlg-box{animation:none}}
 </style>
 </head>
 <body>
@@ -424,7 +437,7 @@ html.locked #petals{z-index:61}
   <h2>Will You Be Joining Us?</h2>
   <p class="deadline">Kindly reply by November 15, 2026 so your seat can be prioritized.</p>
   <p class="seat">We have lovingly reserved <b>1 seat</b> in your honor. As we are hosting an intimate celebration, we respectfully ask that attendance be limited to the number of seats reserved for your invitation.</p>
-  <form id="rsvp-form" class="card" novalidate>
+  <form id="rsvp-form" class="card" novalidate onsubmit="return false">
     <div><label for="f-name">Full name</label><input type="text" id="f-name" name="name" autocomplete="name" required></div>
     <div class="grid2">
       <div><label for="f-mobile">Mobile number</label><input type="tel" id="f-mobile" name="mobile" autocomplete="tel" placeholder="09XX XXX XXXX" required></div>
@@ -477,6 +490,14 @@ html.locked #petals{z-index:61}
 </footer>
 </main>
 <a class="float-rsvp" id="float-rsvp" href="#rsvp">RSVP</a>
+<div class="dlg" id="dlg" hidden role="dialog" aria-modal="true" aria-labelledby="dlg-title" aria-describedby="dlg-msg">
+  <div class="dlg-box">
+    <div class="dlg-icon" id="dlg-icon" aria-hidden="true">✓</div>
+    <h3 id="dlg-title">Thank you!</h3>
+    <p id="dlg-msg"></p>
+    <button type="button" class="btn" id="dlg-ok">OK</button>
+  </div>
+</div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <div class="lb" id="lb" hidden><img id="lb-img" alt=""><button type="button" id="lb-close">Close</button></div>
 
@@ -497,7 +518,13 @@ html.locked #petals{z-index:61}
   tick(); setInterval(tick,1000);
 
   // RSVP form
-    // ==== I-PASTE DITO ANG DEPLOYMENT ID (o ang buong Web app URL) ====
+  var form = document.getElementById("rsvp-form");
+  var status = document.getElementById("f-status");
+  var guestWrap = document.getElementById("guest-wrap");
+  var guest = document.getElementById("f-guest");
+  var nameEl = document.getElementById("f-name");
+  var db = null, myRef = null, ready = false;
+  // ==== I-PASTE DITO ANG DEPLOYMENT ID (o ang buong Web app URL) ====
   var DEPLOYMENT_ID = "AKfycbw-K0V-W2Aulbzd03xbx6-juKrWttVrIslQZoR1WKqnG6AdsZ7BgV-0PuBy8ROYTggBng";
   // ===================================================================
   var SCRIPT_URL = /^https?:/.test(DEPLOYMENT_ID) ? DEPLOYMENT_ID : "https://script.google.com/macros/s/" + DEPLOYMENT_ID + "/exec";
@@ -508,7 +535,6 @@ html.locked #petals{z-index:61}
         .then(function(d){ if (!d || !d.ok) throw new Error((d && d.error) || "Not saved"); return d; });
     } };
     ready = true;
-  }e;
   }
 
   function attending(){ var r = form.querySelector('input[name=attending]:checked'); return r ? r.value : ""; }
@@ -527,6 +553,21 @@ html.locked #petals{z-index:61}
     };
   }
   function setStatus(msg, kind){ status.textContent = msg; status.className = "status " + (kind||""); }
+
+  var dlg = document.getElementById("dlg"), lastFocus = null;
+  function showDialog(ok, title, msg){
+    lastFocus = document.activeElement;
+    dlg.classList.toggle("fail", !ok);
+    document.getElementById("dlg-icon").textContent = ok ? "✓" : "!";
+    document.getElementById("dlg-title").textContent = title;
+    document.getElementById("dlg-msg").textContent = msg;
+    dlg.hidden = false;
+    document.getElementById("dlg-ok").focus();
+  }
+  function closeDialog(){ dlg.hidden = true; if (lastFocus && lastFocus.focus) lastFocus.focus(); }
+  document.getElementById("dlg-ok").addEventListener("click", closeDialog);
+  dlg.addEventListener("click", function(e){ if (e.target === dlg) closeDialog(); });
+  document.addEventListener("keydown", function(e){ if (e.key === "Escape" && !dlg.hidden) closeDialog(); });
 
   function showFallback(v){
     var lines = ["RSVP – Renzel & Erika, Dec 8, 2026",
@@ -553,16 +594,21 @@ html.locked #petals{z-index:61}
     if (!v.name){ setStatus("Please enter your full name.","err"); nameEl.focus(); return; }
     if (!v.mobile){ setStatus("Please enter your mobile number.","err"); document.getElementById("f-mobile").focus(); return; }
     if (!v.attending){ setStatus("Please choose whether you will join us.","err"); return; }
+    document.getElementById("fallback").hidden = true;
     if (!myRef){ setStatus(ready ? "" : "", ""); showFallback(v); return; }
     var btn = document.getElementById("f-submit"); btn.disabled = true;
     setStatus("Sending…");
     v.updatedAt = Date.now();
     myRef.set(v).then(function(){
       if (v.attending==="yes") window.__burst && window.__burst(btn);
-      setStatus(v.attending==="yes" ? "Thank you! Your RSVP is in. We can't wait to celebrate with you." : "Thank you for letting us know. You'll be in our prayers.","ok");
+      setStatus("", "");
+      showDialog(true, "Thank you!", v.attending==="yes"
+        ? "Your RSVP is in. We can't wait to celebrate with you on December 8!"
+        : "Thank you for letting us know. You'll be in our prayers.");
       btn.textContent = "Update RSVP";
     }).catch(function(err){
-      setStatus("Your RSVP couldn't be saved here. Copy it below and send it on Messenger instead.","err");
+      setStatus("", "");
+      showDialog(false, "RSVP not sent", "Something went wrong while sending your RSVP. Please check your internet connection and try again. If it still fails, you can copy your RSVP below and send it to John Renzel on Messenger.");
       showFallback(v);
     }).finally(function(){ btn.disabled = false; });
   });
