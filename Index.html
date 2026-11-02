@@ -497,17 +497,18 @@ html.locked #petals{z-index:61}
   tick(); setInterval(tick,1000);
 
   // RSVP form
-  var form = document.getElementById("rsvp-form");
-  var status = document.getElementById("f-status");
-  var guestWrap = document.getElementById("guest-wrap");
-  var guest = document.getElementById("f-guest");
-  var nameEl = document.getElementById("f-name");
-  var db = null, myRef = null, ready = false;
-  if (window.google && google.script && google.script.run){
-    myRef = { set: function(v){ return new Promise(function(res, rej){
-      google.script.run.withSuccessHandler(res).withFailureHandler(rej).submitRsvp(v);
-    }); } };
+    // ==== I-PASTE DITO ANG DEPLOYMENT ID (o ang buong Web app URL) ====
+  var DEPLOYMENT_ID = "PASTE_YOUR_DEPLOYMENT_ID_HERE";
+  // ===================================================================
+  var SCRIPT_URL = /^https?:/.test(DEPLOYMENT_ID) ? DEPLOYMENT_ID : "https://script.google.com/macros/s/" + DEPLOYMENT_ID + "/exec";
+  if (DEPLOYMENT_ID.indexOf("PASTE_") !== 0){
+    myRef = { set: function(v){
+      return fetch(SCRIPT_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(v) })
+        .then(function(r){ return r.json(); })
+        .then(function(d){ if (!d || !d.ok) throw new Error((d && d.error) || "Not saved"); return d; });
+    } };
     ready = true;
+  }e;
   }
 
   function attending(){ var r = form.querySelector('input[name=attending]:checked'); return r ? r.value : ""; }
